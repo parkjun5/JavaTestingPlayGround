@@ -11,36 +11,39 @@ import java.util.logging.Logger;
 
 public class MainMethod {
     private static final Logger LOG = Logger.getGlobal();
+
     public static void main(String[] args) {
 
         long startTime = System.currentTimeMillis();
-        String forestPath = "D:\\data\\FOREST_PLACE_BAK_22_06_20.csv";
+        String forestPath = "D:\\data\\FOREST_PLACE.csv";
         List<CsvData> forestPlaces = extractCsvToObject(forestPath);
-
         String obsPath = "D:\\data\\MATCH_OBS_LIST.csv";
         List<CsvData> obsList = extractCsvToObject(obsPath);
 
         for (CsvData forest : forestPlaces) {
             AtomicReference<Double> smallDistance = new AtomicReference<>(99999999.9);
             AtomicInteger targetNum = new AtomicInteger(-1);
-
             innerForEach(obsList, smallDistance, targetNum, forest.getLon(), forest.getLat());
-
             forest.setRefId(targetNum.get());
         }
+
         String result = createSqlFromList(forestPlaces);
         writeSqlAsFile(result);
         processTimeCheck(startTime);
     }
+
     private static List<CsvData> extractCsvToObject(String filePath) {
         List<CsvData> list = new ArrayList<>();
+
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             extracted(list, br);
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }
+
         return list;
     }
+
     private static void extracted(List<CsvData> list, BufferedReader br) throws IOException {
         String line;
         while ((line = br.readLine()) != null) {
@@ -48,12 +51,14 @@ public class MainMethod {
             list.add(new CsvData(Integer.parseInt(values[0]), Double.parseDouble(values[1]), Double.parseDouble(values[2])));
         }
     }
+
     private static void innerForEach(List<CsvData> obsList, AtomicReference<Double> smallDistance, AtomicInteger targetNum, double lng1, double lat1) {
         obsList.forEach(obs -> {
             double distance = calculateDistance(lng1, lat1, obs.getLon(), obs.getLat());
             compareDistance(smallDistance, targetNum, obs, distance);
         });
     }
+
     private static double calculateDistance(double lng1, double lat1, double lng2, double lat2) {
         int r = 6371; //지구의 반지름(km)
         double dLat = lat2 - lat1;
@@ -65,38 +70,45 @@ public class MainMethod {
         double d = r * c; // Distance in km
         return Math.abs(Math.round(d * 1000));
     }
+
     private static void compareDistance(AtomicReference<Double> smallDistance, AtomicInteger targetNum, CsvData obs, double distance) {
         if (distance < smallDistance.get()) {
             smallDistance.set(distance);
             targetNum.set(obs.getId());
         }
     }
+
     private static void processTimeCheck(long startTime) {
         long endTime = System.currentTimeMillis();
         long lTime = endTime - startTime;
         String logMsg = "전체 작동 시간 : ".concat(Long.toString(lTime)).concat("(ms)");
         LOG.info(logMsg);
     }
+
     private static String createSqlFromList(List<CsvData> forestPlaces) {
         StringBuilder sb = new StringBuilder();
         forestPlaces.forEach(place -> {
-            sb.append("UPDATE FOREST_PLACE_BAK_22_06_20 SET");
+            sb.append("UPDATE FOREST_PLACE SET");
             sb.append(" REF_ID = ");
             sb.append(place.getRefId());
             sb.append(" WHERE ID = ");
             sb.append(place.getId());
             sb.append(";\n");
         });
+        sb.append("commit;");
         return sb.toString();
     }
+
     private static void writeSqlAsFile(String sql) {
-        File file = new File("D:/data/placeAddRefId.sql");
-        try{
+        File file = new File("D:/data/placeAddRefIdser.sql");
+
+        try {
             BufferedWriter writer = new BufferedWriter(new FileWriter(file));
             writer.write(sql);
             writer.close();
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }
+
     }
 }
